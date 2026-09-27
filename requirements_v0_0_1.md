@@ -1,4 +1,4 @@
-# Angry Rocket C Requirements
+# Angry Rocket C v0.0.1 Requirements
 
 This document defines the requirements for milestone releases of **Angry Rocket C (Arc)**.
 
@@ -89,7 +89,8 @@ Version 0.0.1 shall support the following primitive types:
 - `i32`
 - `bool`
 - `float`
-- `void`
+
+`void` is not a type in Arc.
 
 No additional primitive or composite types are required.
 
@@ -104,11 +105,15 @@ Functions shall support:
 - a function name;
 - zero or more parameters;
 - parameter types;
-- a return type;
+- an optional return type introduced by the return-type arrow;
 - a function body; and
 - return statements where required.
 
-Functions shall be callable from other functions within the same source file.
+A function declaration without a return-type arrow shall define a procedure and shall not return a value.
+
+A function declaration with a return-type arrow shall define a value-returning function and shall return a value compatible with the declared return type.
+
+Functions and procedures shall be callable from other functions within the same source file.
 
 ---
 
@@ -122,13 +127,13 @@ Arguments passed to a function shall correspond to its declared parameters.
 
 ### ARC-0.0.1-R010: Function Return Values
 
-Functions may return supported Arc values.
+Functions with an explicit return type may return supported Arc values.
 
-Functions declared with the `void` return type are not required to return a value.
+A function declaration without a return-type arrow is a procedure and does not have a return type.
 
-A function with a non-`void` return type shall contain a valid return statement on every reachable branch that reaches the end of the function.
+A value-returning function shall contain a valid value-returning `return` statement on every reachable branch that reaches the end of the function.
 
-Programs violating this requirement shall be rejected by semantic analysis.
+Programs violating these requirements shall be rejected by semantic analysis.
 
 ---
 
@@ -136,7 +141,13 @@ Programs violating this requirement shall be rejected by semantic analysis.
 
 The language shall support the `return` statement.
 
-A return statement in a non-`void` function shall return a value compatible with the function's declared return type.
+A procedure may use `return;` to exit early.
+
+A procedure shall not return a value.
+
+A value-returning function shall use `return <expression>;`, where the returned value is compatible with the function's declared return type.
+
+A bare `return;` shall not be valid in a value-returning function.
 
 ---
 
@@ -192,7 +203,7 @@ The compiler shall perform the required semantic validation for operand types.
 
 Arc shall support single-line comments.
 
-Multi-line comments are not required in version 0.0.1.
+Arc shall support multi-line comments.
 
 ---
 
@@ -211,6 +222,8 @@ The following features are explicitly not required for version 0.0.1:
 - functional module resolution;
 - functional import resolution; and
 - a standard library.
+
+`void` is intentionally not part of the Arc type system. Procedures represent functions that do not return a value by omitting the return-type arrow.
 
 Support for these features may be introduced in later versions.
 
@@ -488,13 +501,16 @@ At minimum, the compiler shall be able to compile a valid single-file Arc progra
 - local variables;
 - supported primitive types;
 - function declarations and calls;
+- procedures without return types;
+- value-returning functions with explicit return types;
 - function parameters;
 - return values;
 - arithmetic expressions;
 - comparison expressions;
 - `if` / `else` statements;
-- `while` loops; and
-- single-line comments.
+- `while` loops;
+- single-line comments; and
+- multi-line comments.
 
 The following example represents the general complexity expected to be supportable by the release:
 

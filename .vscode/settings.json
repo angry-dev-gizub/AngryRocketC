@@ -80,5 +80,9 @@
     // Don't pollute searches with generated build files.
     "search.exclude": {
         "**/build/**": true
+    },
+    
+    "files.exclude": {
+        "**/.git": false
     }
 }

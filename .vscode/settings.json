@@ -1,0 +1,84 @@
+{
+    // ------------------------------------------------------------
+    // CMAKE
+    // ------------------------------------------------------------
+
+    // The CMakeLists.txt at the root of the repository is the
+    // entry point for the entire Arc project.
+    "cmake.sourceDirectory": "${workspaceFolder}",
+
+    // Keep all generated CMake/build files here.
+    "cmake.buildDirectory": "${workspaceFolder}/build",
+
+    // Configure automatically when the project is opened.
+    "cmake.configureOnOpen": true,
+
+    // Reconfigure when CMakeLists.txt or *.cmake files are modified.
+    "cmake.configureOnEdit": true,
+
+    // Save modified source files before building.
+    "cmake.saveBeforeBuild": true,
+
+    // When running/debugging through CMake, build first.
+    "cmake.buildBeforeRun": true,
+
+    // Use all available CPU cores for builds.
+    "cmake.parallelJobs": 0,
+
+    // Prefer Ninja if available.
+    "cmake.preferredGenerators": [
+        "Ninja",
+        "Unix Makefiles"
+    ],
+
+    // Generate compile_commands.json.
+    // Useful for IntelliSense, clang tooling, static analyzers, etc.
+    "cmake.configureSettings": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
+    },
+
+    // Show the CMake output automatically only if something fails.
+    "cmake.revealLog": "error",
+
+    // ------------------------------------------------------------
+    // C / C++
+    // ------------------------------------------------------------
+
+    // Let CMake tell IntelliSense which include paths, defines,
+    // compiler flags, etc. are actually being used.
+    "C_Cpp.default.configurationProvider": "ms-vscode.cmake-tools",
+
+    // Use clang-format instead of Microsoft's alternate formatter.
+    "C_Cpp.formatting": "clangFormat",
+
+    // Search upward for the project's .clang-format file.
+    "C_Cpp.clang_format_style": "file",
+
+    // ------------------------------------------------------------
+    // FORMAT ON SAVE
+    // ------------------------------------------------------------
+
+    "[c]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+
+    "[cpp]": {
+        "editor.defaultFormatter": "ms-vscode.cpptools",
+        "editor.formatOnSave": true
+    },
+
+    // ------------------------------------------------------------
+    // GENERATED FILES
+    // ------------------------------------------------------------
+
+    // Don't waste resources watching thousands of generated files.
+    "files.watcherExclude": {
+        "**/build/**": true
+    },
+
+    // Don't pollute searches with generated build files.
+    "search.exclude": {
+        "**/build/**": true
+    }
+}

@@ -1,0 +1,12 @@
+Checks: >
+  -*,
+  clang-analyzer-*,
+  bugprone-*,
+  portability-*,
+  performance-*,
+  readability-redundant-declaration,
+  misc-unused-parameters
+
+WarningsAsErrors: ''
+
+FormatStyle: file

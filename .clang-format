@@ -1,0 +1,124 @@
+---
+Language: Cpp
+
+BasedOnStyle: LLVM
+
+# ============================================================
+# Indentation
+# ============================================================
+
+IndentWidth: 4
+ContinuationIndentWidth: 4
+TabWidth: 4
+UseTab: Never
+
+# ============================================================
+# Line length
+# ============================================================
+
+ColumnLimit: 120
+
+# ============================================================
+# Pointers
+#
+#     Allocator* allocator
+#     const void* ptr
+# ============================================================
+
+PointerAlignment: Left
+DerivePointerAlignment: false
+
+# ============================================================
+# Parentheses / spacing
+# ============================================================
+
+SpaceBeforeParens: Never
+SpaceAfterCStyleCast: false
+
+SpacesInParentheses: false
+SpacesInSquareBrackets: false
+
+# ============================================================
+# Braces
+# ============================================================
+
+BreakBeforeBraces: Attach
+
+# ============================================================
+# Short statements
+# ============================================================
+
+AllowShortIfStatementsOnASingleLine: Never
+AllowShortLoopsOnASingleLine: false
+AllowShortFunctionsOnASingleLine: None
+AllowShortBlocksOnASingleLine: Never
+
+# ============================================================
+# Function declarations / calls
+# ============================================================
+
+BinPackArguments: true
+BinPackParameters: true
+
+AllowAllArgumentsOnNextLine: true
+AllowAllParametersOfDeclarationOnNextLine: true
+
+AlignAfterOpenBracket: Align
+
+# ============================================================
+# Struct / aggregate initialization
+# ============================================================
+
+Cpp11BracedListStyle: true
+
+# ============================================================
+# Assignment alignment
+# ============================================================
+
+AlignConsecutiveAssignments:
+  Enabled: true
+  AcrossEmptyLines: false
+  AcrossComments: false
+
+AlignConsecutiveDeclarations:
+  Enabled: false
+
+# ============================================================
+# switch
+#
+#     switch(error) {
+#         case ERROR_A:
+#             ...
+#     }
+# ============================================================
+
+IndentCaseLabels: true
+IndentCaseBlocks: false
+
+# ============================================================
+# Includes
+# ============================================================
+
+SortIncludes: Never
+
+# ============================================================
+# Comments
+# ============================================================
+
+ReflowComments: false
+
+# ============================================================
+# Preprocessor
+# ============================================================
+
+IndentPPDirectives: None
+
+# ============================================================
+# Misc
+# ============================================================
+
+KeepEmptyLinesAtTheStartOfBlocks: false
+MaxEmptyLinesToKeep: 1
+
+InsertNewlineAtEOF: true
+...

@@ -1,0 +1,77 @@
+{
+    "version": "2.0.0",
+
+    "tasks": [
+        {
+            "label": "CMake: Configure",
+            "type": "cmake",
+            "command": "configure",
+            "targets": [
+                "all"
+            ],
+            "problemMatcher": [],
+            "detail": "Configure the Arc CMake project"
+        },
+
+        {
+            "label": "CMake: Build",
+            "type": "cmake",
+            "command": "build",
+            "targets": [
+                "all"
+            ],
+
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            },
+
+            "problemMatcher": [],
+            "detail": "Build all Arc targets"
+        },
+
+        {
+            "label": "CMake: Clean",
+            "type": "cmake",
+            "command": "clean",
+            "problemMatcher": [],
+            "detail": "Clean the current Arc build"
+        },
+
+        {
+            "label": "CMake: Clean Rebuild",
+            "type": "cmake",
+            "command": "cleanRebuild",
+            "problemMatcher": [],
+            "detail": "Clean and rebuild Arc"
+        },
+
+        {
+            "label": "CMake: Test",
+            "type": "cmake",
+            "command": "test",
+            "problemMatcher": [],
+            "detail": "Run Arc tests through CTest"
+        },
+
+        {
+            "label": "Format: C/C++",
+            "type": "shell",
+
+            "command": "bash",
+
+            "args": [
+                "-c",
+                "find . -type f \\( -name '*.c' -o -name '*.h' -o -name '*.cpp' -o -name '*.hpp' \\) -not -path './build/*' -not -path './external/*' -print0 | xargs -0 -r clang-format -i"
+            ],
+
+            "options": {
+                "cwd": "${workspaceFolder}"
+            },
+
+            "problemMatcher": [],
+
+            "detail": "Run clang-format over the Arc source tree"
+        }
+    ]
+}

@@ -1,0 +1,37 @@
+{
+    "version": "0.2.0",
+
+    "configurations": [
+        {
+            "name": "Debug CMake Target",
+
+            "type": "cppdbg",
+            "request": "launch",
+
+            // CMake Tools gives VS Code the actual executable path.
+            "program": "${command:cmake.launchTargetPath}",
+
+            "args": [],
+
+            "stopAtEntry": false,
+
+            // Run from the executable's build directory.
+            "cwd": "${command:cmake.getLaunchTargetDirectory}",
+
+            "environment": [],
+
+            "externalConsole": false,
+
+            // Linux debugger.
+            "MIMode": "gdb",
+
+            "setupCommands": [
+                {
+                    "description": "Enable GDB pretty printing",
+                    "text": "-enable-pretty-printing",
+                    "ignoreFailures": true
+                }
+            ]
+        }
+    ]
+}

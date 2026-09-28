@@ -61,7 +61,7 @@ module main
 {
     import arc.std.io;
 
-    fn main() -› i32
+    fn main() -> i32
     {
         std::io::println("Hello World!");
 

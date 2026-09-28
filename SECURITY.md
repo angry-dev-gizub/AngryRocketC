@@ -5,8 +5,9 @@
 If you discover a security vulnerability in Arc, please do not disclose
 it publicly before it has been reviewed.
 
-Report security vulnerabilities through the project's designated
-private security-reporting channel.
+Please report vulnerabilities privately using GitHub's
+**Report a vulnerability** feature available from the repository's
+Security page.
 
 Please include, where possible:
 

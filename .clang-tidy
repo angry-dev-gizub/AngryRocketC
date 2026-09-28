@@ -9,4 +9,7 @@ Checks: >
 
 WarningsAsErrors: ''
 
+HeaderFilterRegex: '.*'
+ExcludeHeaderFilterRegex: '.*/external/.*'
+
 FormatStyle: file

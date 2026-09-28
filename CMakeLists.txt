@@ -102,6 +102,7 @@ endif()
 #--------------------------------------------------------------------
 
 add_subdirectory(external)
+add_subdirectory(cmake_config)
 add_subdirectory(ARC-CORE)
 add_subdirectory(ARC)
 

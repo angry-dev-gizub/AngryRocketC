@@ -5,6 +5,7 @@ add_library(
     arc-core
     STATIC
     allocator/allocator.c
+    allocator/allocators/system_allocator.c
 )
 
 target_include_directories(
@@ -13,13 +14,7 @@ target_include_directories(
     ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
-target_compile_options(
-    arc-core
-    PRIVATE
-    arc-sanitizers
-)
-
-target_link_options(
+target_link_libraries(
     arc-core
     PRIVATE
     arc-sanitizers

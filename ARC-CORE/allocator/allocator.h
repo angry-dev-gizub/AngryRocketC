@@ -15,7 +15,6 @@
  * The allocator interface provides a generic wrapper around different
  * memory allocation strategies, such as arena, pool, or heap allocators.
  * It also allows API users to define custom allocation strategies.
- *
  * The API behaves predictably as long as its documented contracts are respected.
  *
  * @note This file is part of Arc Core.

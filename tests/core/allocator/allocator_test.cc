@@ -18,8 +18,7 @@
  */
 
 #include <gtest/gtest.h>
-
-#include "allocator/allocator.h"
+#include <allocator/allocator.h>
 
 /* -------------------------------------------------------------------------- */
 /* Test context                                                               */

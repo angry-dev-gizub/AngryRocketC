@@ -16,8 +16,7 @@ target_include_directories(
 target_compile_options(
     arc-core
     PRIVATE
-    $<$<CONFIG:Debug>:-fsanitize=address,undefined>
-    $<$<CONFIG:Debug>:-fno-omit-frame-pointer>
+    arc-sanitizers
 )
 
 target_link_options(

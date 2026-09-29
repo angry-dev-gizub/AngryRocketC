@@ -6,7 +6,7 @@
  */
 
 /**
- * @file allocator_test.cpp
+ * @file allocator_test.cc
  *
  * @author Nelson Somé
  *

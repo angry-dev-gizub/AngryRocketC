@@ -6,4 +6,6 @@ set(
     # allocator tests:
     core/allocator/allocator_test.cc
     core/allocator/sys_allocator_test.cc
+    # iterator tests:
+    core/iterator/iterator_test.cc
 )

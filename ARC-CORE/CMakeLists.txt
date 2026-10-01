@@ -6,6 +6,7 @@ add_library(
     STATIC
     allocator/allocator.c
     allocator/allocators/system_allocator.c
+    iterator/iterator.c
 )
 
 target_include_directories(

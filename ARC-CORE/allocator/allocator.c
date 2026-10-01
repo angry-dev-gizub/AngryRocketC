@@ -87,16 +87,7 @@ bool allocator_init(Allocator* out, const AllocatorDesc* desc) {
         .initialized        = true,
         .supported_features = features,
         .context            = desc->context,
-        .iface =
-            (AllocatorInterface){
-                .mem_alloc         = desc->iface.mem_alloc,
-                .mem_zero_alloc    = desc->iface.mem_zero_alloc,
-                .mem_realloc       = desc->iface.mem_realloc,
-                .mem_aligned_alloc = desc->iface.mem_aligned_alloc,
-                .mem_free          = desc->iface.mem_free,
-                .mem_aligned_free  = desc->iface.mem_aligned_free,
-                .mem_clear         = desc->iface.mem_clear,
-            },
+        .iface              = desc->iface
 
     };
 

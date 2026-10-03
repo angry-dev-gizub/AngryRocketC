@@ -17,17 +17,25 @@ static bool iterator_desc_is_valid(const IteratorDesc* desc) {
     if(!desc)
         return false;
 
+    if(desc->type_size == 0)
+        return false;
+
     if(!desc->iface.next || !desc->iface.get || !desc->iface.equals)
         return false;
 
     const bool has_previous = desc->iface.previous != NULL;
     const bool has_advance  = desc->iface.advance != NULL;
     const bool has_distance = desc->iface.distance != NULL;
+    const bool has_clone    = desc->iface.clone != NULL;
+    const bool has_destroy  = desc->iface.destroy != NULL;
 
     if(has_advance != has_distance)
         return false;
 
     if(!has_previous && (has_advance || has_distance))
+        return false;
+
+    if(has_clone != has_destroy)
         return false;
 
     return true;
@@ -83,9 +91,12 @@ bool iterator_init(Iterator* out, const IteratorDesc* desc) {
 
     *out = (Iterator){
         .initialized = true,
+        .owns_context = false,
+        .type_size   = desc->type_size,
         .category    = category,
         .context     = desc->context,
         .iface       = desc->iface,
+        .cloning_allocator = NULL,
     };
 
     return true;
@@ -106,11 +117,28 @@ bool iterator_is_at_least(const Iterator* iterator, IteratorCategory required_ca
     if(!iterator->initialized)
         return false;
 
-    if(required_category <= ITERATOR_CATEGORY_INVALID ||
-       required_category > ITERATOR_CATEGORY_RANDOM_ACCESS)
+    if(required_category <= ITERATOR_CATEGORY_INVALID || required_category > ITERATOR_CATEGORY_RANDOM_ACCESS)
         return false;
 
     return iterator->category >= required_category;
+}
+
+/**
+ * @brief Obtains the size of the element type traversed by an iterator.
+ *
+ * @param[in] iterator Pointer to an initialized iterator.
+ *
+ * @return The size in bytes of the iterator's element type.
+ * @return 0 if 'iterator' is NULL or not initialized.
+ *
+ * @note The returned value is the type size supplied when the iterator was
+ *       initialized and remains constant for the iterator's lifetime.
+ */
+size_t iterator_get_type_size(const Iterator* iterator) {
+    if(!iterator || !iterator->initialized)
+        return 0;
+
+    return iterator->type_size;
 }
 
 /**
@@ -186,6 +214,9 @@ IteratorResult iterator_distance(const Iterator* start, const Iterator* end, ptr
     if(!start->initialized || !end->initialized)
         return ITERATOR_ERROR_INVALID_ITERATOR;
 
+    if(start->type_size != end->type_size)
+        return ITERATOR_ERROR_INCOMPATIBLE_ITERATORS;
+
     if(!iterator_is_at_least(start, ITERATOR_CATEGORY_RANDOM_ACCESS) ||
        !iterator_is_at_least(end, ITERATOR_CATEGORY_RANDOM_ACCESS))
         return ITERATOR_ERROR_UNSUPPORTED_OPERATION;
@@ -206,7 +237,7 @@ IteratorResult iterator_distance(const Iterator* start, const Iterator* end, ptr
  * @note The iterator retains no ownership over the returned pointer beyond the
  *       guarantees provided by the underlying iterator implementation.
  */
-IteratorResult iterator_get(const Iterator* iterator, void** out) {
+IteratorResult iterator_get(const Iterator* iterator, const void** out) {
     if(!iterator)
         return ITERATOR_ERROR_INVALID_ITERATOR;
 
@@ -236,10 +267,138 @@ IteratorResult iterator_equals(const Iterator* a, const Iterator* b, bool* out) 
     if(!a->initialized || !b->initialized)
         return ITERATOR_ERROR_INVALID_ITERATOR;
 
+    if(a->type_size != b->type_size)
+        return ITERATOR_ERROR_INCOMPATIBLE_ITERATORS;
+
     if(a->iface.equals != b->iface.equals)
         return ITERATOR_ERROR_INCOMPATIBLE_ITERATORS;
 
     return a->iface.equals(a->context, b->context, out);
+}
+
+/**
+ * @brief Creates an independent clone of an iterator.
+ *
+ * The cloned iterator represents the same traversal position and iteration
+ * domain as the source iterator while owning an independent iterator-specific
+ * context.
+ *
+ * Moving either iterator after cloning does not affect the traversal position
+ * of the other.
+ *
+ * @param[in] iterator Initialized iterator to clone. Must not be NULL.
+ * @param[out] out Iterator receiving the independent clone. Must not be NULL.
+ * @param[in] allocator Allocator used to allocate the cloned context. Must not
+ *                      be NULL and must remain valid until the clone is destroyed.
+ *
+ * @return ITERATOR_SUCCESS on success.
+ * @return ITERATOR_ERROR_INVALID_ITERATOR if 'iterator' is NULL or invalid.
+ * @return ITERATOR_ERROR_INVALID_ARGUMENTS if 'out' or 'allocator' is NULL.
+ * @return ITERATOR_ERROR_UNSUPPORTED_OPERATION if cloning is not supported by
+ *         the iterator implementation.
+ * @return Any error returned by the implementation-specific cloning callback.
+ *
+ * @post On success:
+ *       - 'out' is initialized;
+ *       - 'out' represents the same traversal position and domain as 'iterator';
+ *       - 'out' owns an independent context;
+ *       - 'out' stores 'allocator' for later context destruction.
+ *
+ * @post On failure, 'out' is reset to an invalid iterator state.
+ *
+ * @attention A successfully cloned iterator must eventually be passed to
+ *            iterator_destroy().
+ * 
+ * @attention 'out' must not contain a live initialized Iterator.
+           An existing Iterator must be destroyed before being reused as output.
+ */
+IteratorResult iterator_clone(const Iterator* iterator, Iterator* out, Allocator* allocator) {
+    if(!out)
+        return ITERATOR_ERROR_INVALID_ARGUMENTS;
+
+    if(out == iterator)
+        return ITERATOR_ERROR_INVALID_ARGUMENTS;
+
+    *out = (Iterator){0};
+
+    if(!iterator || !iterator->initialized)
+        return ITERATOR_ERROR_INVALID_ITERATOR;
+
+    if(!allocator)
+        return ITERATOR_ERROR_INVALID_ARGUMENTS;
+
+    if(!iterator->iface.clone)
+        return ITERATOR_ERROR_UNSUPPORTED_OPERATION;
+
+    void* cloned_context  = NULL;
+    IteratorResult result = iterator->iface.clone(iterator->context, &cloned_context, allocator);
+
+    if(result != ITERATOR_SUCCESS)
+        return result;
+
+    *out = (Iterator){
+        .initialized       = true,
+        .owns_context      = true,
+        .type_size        = iterator->type_size,
+        .category          = iterator->category,
+        .context           = cloned_context,
+        .iface             = iterator->iface,
+        .cloning_allocator = allocator,
+    };
+
+    return ITERATOR_SUCCESS;
+}
+
+/**
+ * @brief Destroys an iterator.
+ *
+ * If the iterator owns its context, the context is released using the
+ * implementation-specific destruction callback and the allocator originally
+ * supplied to iterator_clone().
+ *
+ * If the iterator does not own its context, only the Iterator object itself is
+ * invalidated; the borrowed context is left untouched.
+ *
+ * @param[in, out] iterator Iterator to destroy. Must not be NULL and must be
+ *                         initialized.
+ *
+ * @return ITERATOR_SUCCESS on success.
+ * @return ITERATOR_ERROR_INVALID_ITERATOR if 'iterator' is NULL or invalid.
+ * @return ITERATOR_ERROR_UNSUPPORTED_OPERATION if an owned iterator does not
+ *         provide the required destruction callback.
+ *
+ * @post On success, the Iterator is reset to an invalid state and must not be
+ *       used until initialized again.
+ *
+ * @post On failure, an owned Iterator retains ownership of its context and
+ *       remains unchanged.
+ *
+ * @note Destroying an initialized Iterator that does not own its context is a
+ *       successful operation and does not affect the borrowed context.
+ */
+IteratorResult iterator_destroy(Iterator* iterator) {
+    if(!iterator || !iterator->initialized)
+        return ITERATOR_ERROR_INVALID_ITERATOR;
+
+    if(!iterator->owns_context) {
+        *iterator = (Iterator){0};
+        return ITERATOR_SUCCESS;
+    }
+
+    if(!iterator->cloning_allocator)
+        return ITERATOR_ERROR_INVALID_ITERATOR;
+
+    if(!iterator->iface.destroy)
+        return ITERATOR_ERROR_UNSUPPORTED_OPERATION;
+
+    IteratorResult result = iterator->iface.destroy(iterator->context, iterator->cloning_allocator);
+
+    if(result != ITERATOR_SUCCESS)
+        return result;
+
+    *iterator = (Iterator){0};
+
+    return ITERATOR_SUCCESS;
 }
 
 /**
@@ -264,6 +423,31 @@ const char* iterator_result_to_string(IteratorResult result) {
             return "out of range access";
         case ITERATOR_ERROR_INCOMPATIBLE_ITERATORS:
             return "incompatible iterators";
+        default:
+            return NULL;
+    }
+}
+
+/**
+ * @brief Converts an IteratorCategory value to a human-readable string.
+ *
+ * @param[in] category Iterator category to convert.
+ *
+ * @return A human-readable description of 'category', or NULL if 'category'
+ *         is not a valid IteratorCategory value.
+ *
+ * @note The returned string has static lifetime and must not be modified or freed.
+ */
+const char* iterator_category_to_string(IteratorCategory category) {
+    switch(category) {
+        case ITERATOR_CATEGORY_INVALID:
+            return "invalid";
+        case ITERATOR_CATEGORY_FORWARD:
+            return "forward";
+        case ITERATOR_CATEGORY_BIDIRECTIONAL:
+            return "bidirectional";
+        case ITERATOR_CATEGORY_RANDOM_ACCESS:
+            return "random access";
         default:
             return NULL;
     }

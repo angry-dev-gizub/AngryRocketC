@@ -7,6 +7,8 @@ add_library(
     allocator/allocator.c
     allocator/allocators/system_allocator.c
     iterator/iterator.c
+    collections/array_impl.c
+    algorithm/common/sentinel.c
 )
 
 target_include_directories(

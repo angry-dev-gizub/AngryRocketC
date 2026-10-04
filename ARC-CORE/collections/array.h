@@ -51,6 +51,7 @@ extern "C" {
 /** Forward declarations */
 typedef struct Allocator Allocator;
 typedef struct Iterator Iterator;
+typedef struct Range Range;
 typedef struct ArrayDesc ArrayDesc;
 typedef struct Array Array;
 
@@ -216,9 +217,15 @@ struct ArrayDesc {
         .storage_allocator = arr_allocator_ptr, .growth_factor = gfactor,                                              \
     }
 
+/** 
+ * Note that the object metadata and the data are allocated by the same allocator.
+ */
 #define STATIC_ARRAY_DESC_FROM_TYPE(type, capacity, allocator_ptr)                                                     \
     STATIC_ARRAY_DESC_FROM_TYPE_EX(type, capacity, allocator_ptr, allocator_ptr)
 
+/** 
+ * Note that the object metadata and the data are allocated by the same allocator.
+ */
 #define DYNAMIC_ARRAY_DESC_FROM_TYPE(type, capacity, allocator_ptr)                                                    \
     DYNAMIC_ARRAY_DESC_FROM_TYPE_EX(type, capacity, allocator_ptr, allocator_ptr, ARRAY_GROWTH_2X)
 
@@ -329,6 +336,8 @@ ArrayResult array_set_at(Array* array, size_t index, const void* element);
  */
 ArrayResult array_get_first(const Array* array, const void** out);
 
+ArrayResult array_get_first_mut(Array* array, void** out);
+
 /**
  * @brief Obtains a read-only pointer to the last element.
  *
@@ -344,6 +353,8 @@ ArrayResult array_get_first(const Array* array, const void** out);
  *       rules as pointers returned by array_get_at().
  */
 ArrayResult array_get_last(const Array* array, const void** out);
+
+ArrayResult array_get_last_mut(Array* array, void** out);
 
 /**
  * @brief Obtains a read-only pointer to the contiguous element storage.
@@ -386,6 +397,12 @@ ArrayResult array_get_data(const Array* array, const void** out);
  *            operation invalidates internal storage pointers.
  */
 ArrayResult array_get_data_mut(Array* array, void** out);
+
+ArrayResult array_get_data_ex(const Array* array, const void** out, size_t* out_size);
+
+ArrayResult array_get_data_mut_ex(Array* array, void** out, size_t* out_size);
+
+ArrayResult array_get_type_size(const Array* array, size_t* out);
 
 /**
  * @brief Obtains the number of currently stored elements.
@@ -491,6 +508,8 @@ ArrayResult array_get_begin_iterator(const Array* array, Iterator* out);
  */
 ArrayResult array_get_begin_reverse_iterator(const Array* array, Iterator* out);
 
+ArrayResult array_get_iterator_at(const Array* array, size_t index, Iterator* out);
+
 /**
  * @brief Creates a past-the-end iterator for forward traversal.
  *
@@ -533,6 +552,14 @@ ArrayResult array_get_end_iterator(const Array* array, Iterator* out);
  * @attention Any invalidating Array mutation invalidates the iterator.
  */
 ArrayResult array_get_end_reverse_iterator(const Array* array, Iterator* out);
+
+ArrayResult array_get_range(const Array* array, Range* out);
+
+ArrayResult array_get_range_ex(const Array* array, size_t start_index, size_t end_index, Range* out);
+
+ArrayResult array_get_reverse_range(const Array* array, Range* out);
+
+ArrayResult array_get_reverse_range_ex(const Array* array, size_t start_index, size_t end_index, Range* out);
 
 /**
  * @brief Reduces a dynamic Array's capacity to the smallest permitted capacity.

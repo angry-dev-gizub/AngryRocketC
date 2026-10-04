@@ -8,4 +8,6 @@ set(
     core/allocator/sys_allocator_test.cc
     # iterator tests:
     core/iterator/iterator_test.cc
+    #algorithm tests:
+    core/algorithm/common/sentinel_test.cc
 )

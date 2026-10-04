@@ -103,6 +103,19 @@ bool iterator_init(Iterator* out, const IteratorDesc* desc) {
 }
 
 /**
+ * @brief Checks whether an iterator is valid and initialized.
+ *
+ * @param[in] iterator Pointer to the iterator to check.
+ * @return true if the iterator is valid and initialized, false otherwise.
+ */
+bool iterator_is_valid(const Iterator* iterator) {
+    if(!iterator)
+        return false;
+
+    return iterator->initialized;
+}
+
+/**
  * @brief Checks whether an iterator provides at least the requested traversal category.
  *
  * @param[in] iterator Pointer to an initialized iterator. Must not be NULL.

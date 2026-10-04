@@ -33,7 +33,12 @@
  * the array unchanged.
  *
  * @attention Successful structural mutations invalidate all previously obtained
- *            iterators and pointers referring to the array's internal storage.
+ *            iterators, ranges, sentinels, and pointers referring to the Array's
+ *            traversal state or internal storage.
+ *
+ * @note Replacing element bytes without changing Array structure, including
+ *       array_set_at() and writes through mutable element/data pointers, does
+ *       not invalidate existing iterators or ranges.
  *
  * @note This file is part of Arc Core.
  */
@@ -87,6 +92,9 @@ typedef /** ArrayResult */
 
         /** An underlying iterator operation failed. */
         ARRAY_ERROR_ITERATOR_ERROR,
+
+        /** An underlying Range or Sentinel operation failed. */
+        ARRAY_ERROR_RANGE_ERROR,
     } ArrayResult;
 
 typedef /** ArrayGrowthFactor */
@@ -269,8 +277,8 @@ ArrayResult array_new(Array** out, const ArrayDesc* desc);
  *
  * @note Passing NULL results in a successful no-op.
  *
- * @attention All pointers and iterators referring to the Array become invalid
- *            after successful destruction.
+ * @attention All pointers, iterators, sentinels, and ranges referring to the
+ *            Array become invalid after successful destruction.
  *
  * @attention If releasing the internal storage fails, the Array object itself
  *            is not released.
@@ -315,8 +323,9 @@ ArrayResult array_get_at(const Array* array, const void** out, size_t index);
  *
  * @post On failure the Array remains unchanged.
  *
- * @attention On success all previously obtained iterators and borrowed pointers
- *            into this Array are invalidated.
+ * @note Replacing element bytes does not change Array structure, size, capacity,
+ *       or element addresses and therefore does not invalidate existing
+ *       iterators, ranges, sentinels, or borrowed pointers.
  */
 ArrayResult array_set_at(Array* array, size_t index, const void* element);
 
@@ -336,6 +345,23 @@ ArrayResult array_set_at(Array* array, size_t index, const void* element);
  */
 ArrayResult array_get_first(const Array* array, const void** out);
 
+/**
+ * @brief Obtains a mutable pointer to the first logical element.
+ *
+ * @param[in, out] array Array to access.
+ * @param[out] out Pointer receiving mutable access to the first element.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_OUT_OF_RANGE if the Array is empty.
+ *
+ * @post On failure '*out' is set to NULL.
+ *
+ * @note The returned pointer is borrowed.
+ * @note Writing through the pointer modifies element bytes only and does not
+ *       invalidate existing iterators or ranges.
+ *
+ * @attention Any later structural mutation may invalidate the returned pointer.
+ */
 ArrayResult array_get_first_mut(Array* array, void** out);
 
 /**
@@ -354,6 +380,23 @@ ArrayResult array_get_first_mut(Array* array, void** out);
  */
 ArrayResult array_get_last(const Array* array, const void** out);
 
+/**
+ * @brief Obtains a mutable pointer to the last logical element.
+ *
+ * @param[in, out] array Array to access.
+ * @param[out] out Pointer receiving mutable access to the last element.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_OUT_OF_RANGE if the Array is empty.
+ *
+ * @post On failure '*out' is set to NULL.
+ *
+ * @note The returned pointer is borrowed.
+ * @note Writing through the pointer modifies element bytes only and does not
+ *       invalidate existing iterators or ranges.
+ *
+ * @attention Any later structural mutation may invalidate the returned pointer.
+ */
 ArrayResult array_get_last_mut(Array* array, void** out);
 
 /**
@@ -398,11 +441,55 @@ ArrayResult array_get_data(const Array* array, const void** out);
  */
 ArrayResult array_get_data_mut(Array* array, void** out);
 
+/**
+ * @brief Obtains the read-only contiguous element storage and logical byte size.
+ *
+ * @param[in] array Array to access.
+ * @param[out] out Pointer receiving the beginning of the logical element data.
+ * @param[out] out_size Pointer receiving the logical data size in bytes.
+ *
+ * @return ARRAY_SUCCESS on success.
+ *
+ * @post On success, '*out_size' equals 'size * element_size'.
+ * @post If the Array is empty, '*out' is NULL and '*out_size' is zero.
+ * @post On failure, '*out' is NULL and '*out_size' is zero.
+ *
+ * @note The returned pointer is borrowed and follows the same invalidation rules
+ *       as array_get_data().
+ */
 ArrayResult array_get_data_ex(const Array* array, const void** out, size_t* out_size);
 
+/**
+ * @brief Obtains mutable contiguous element storage and logical byte size.
+ *
+ * @param[in, out] array Array to access.
+ * @param[out] out Pointer receiving mutable access to the logical element data.
+ * @param[out] out_size Pointer receiving the logical data size in bytes.
+ *
+ * @return ARRAY_SUCCESS on success.
+ *
+ * @post On success, '*out_size' equals 'size * element_size'.
+ * @post If the Array is empty, '*out' is NULL and '*out_size' is zero.
+ * @post On failure, '*out' is NULL and '*out_size' is zero.
+ *
+ * @note Writing within the returned logical byte range modifies element bytes
+ *       only and does not invalidate existing iterators or ranges.
+ *
+ * @attention Any later structural mutation may invalidate the returned pointer.
+ */
 ArrayResult array_get_data_mut_ex(Array* array, void** out, size_t* out_size);
 
-ArrayResult array_get_type_size(const Array* array, size_t* out);
+/**
+ * @brief Obtains the fixed size in bytes of each Array element.
+ *
+ * @param[in] array Array to inspect.
+ * @param[out] out Pointer receiving the element size.
+ *
+ * @return ARRAY_SUCCESS on success.
+ *
+ * @post On failure '*out' is set to zero.
+ */
+ArrayResult array_get_element_size(const Array* array, size_t* out);
 
 /**
  * @brief Obtains the number of currently stored elements.
@@ -470,9 +557,12 @@ ArrayResult array_is_empty(const Array* array, bool* out);
  * @note If the Array is empty, the resulting begin iterator compares equal to
  *       the corresponding end iterator.
  *
- * @note The returned iterator borrows the Array and does not own it.
+ * @note The returned Iterator owns an independent traversal context allocated
+ *       using the Array's object allocator.
+ * @note The Iterator borrows the Array itself and does not own it.
  * @note Independent Array iterators have independent traversal state.
  *
+ * @attention A successful result must eventually be passed to iterator_destroy().
  * @attention The returned iterator provides read-only element access through
  *            iterator_get().
  * @attention 'out' must not contain a live initialized Iterator.
@@ -499,6 +589,10 @@ ArrayResult array_get_begin_iterator(const Array* array, Iterator* out);
  * @note If the Array is empty, the resulting reverse begin iterator compares
  *       equal to the corresponding reverse end iterator.
  *
+ * @note The returned Iterator owns an independent traversal context allocated
+ *       using the Array's object allocator and borrows the Array itself.
+ *
+ * @attention A successful result must eventually be passed to iterator_destroy().
  * @attention The returned iterator provides read-only element access through
  *            iterator_get().
  * @attention 'out' must not contain a live initialized Iterator.
@@ -508,6 +602,28 @@ ArrayResult array_get_begin_iterator(const Array* array, Iterator* out);
  */
 ArrayResult array_get_begin_reverse_iterator(const Array* array, Iterator* out);
 
+/**
+ * @brief Creates a forward Array Iterator at a specific logical position.
+ *
+ * @param[in] array Array whose traversal domain is represented.
+ * @param[in] index Logical position in the inclusive range '[0, size]'.
+ * @param[out] out Iterator to initialize.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_OUT_OF_RANGE if 'index > size'.
+ *
+ * @post If 'index < size', the Iterator is dereferenceable at that element.
+ * @post If 'index == size', the Iterator represents the forward past-the-end
+ *       position and must not be dereferenced.
+ * @post On failure, 'out' is reset to an invalid Iterator state.
+ *
+ * @note The returned Iterator owns an independent traversal context allocated
+ *       using the Array's object allocator and borrows the Array itself.
+ *
+ * @attention A successful result must eventually be passed to iterator_destroy().
+ * @attention The Array and its object allocator must outlive the Iterator.
+ * @attention Structural Array mutation invalidates the Iterator.
+ */
 ArrayResult array_get_iterator_at(const Array* array, size_t index, Iterator* out);
 
 /**
@@ -520,7 +636,10 @@ ArrayResult array_get_iterator_at(const Array* array, size_t index, Iterator* ou
  *
  * @note The resulting iterator must not be dereferenced.
  * @note It is compatible with forward Array iterators produced for the same Array.
+ * @note The returned Iterator owns an independent traversal context allocated
+ *       using the Array's object allocator and borrows the Array itself.
  *
+ * @attention A successful result must eventually be passed to iterator_destroy().
  * @attention The returned iterator provides read-only element access through
  *            iterator_get().
  * @attention 'out' must not contain a live initialized Iterator.
@@ -543,7 +662,10 @@ ArrayResult array_get_end_iterator(const Array* array, Iterator* out);
  *
  * @note The resulting iterator must not be dereferenced.
  * @note It is compatible with reverse Array iterators produced for the same Array.
+ * @note The returned Iterator owns an independent traversal context allocated
+ *       using the Array's object allocator and borrows the Array itself.
  *
+ * @attention A successful result must eventually be passed to iterator_destroy().
  * @attention The returned iterator provides read-only element access through
  *            iterator_get().
  * @attention 'out' must not contain a live initialized Iterator.
@@ -553,12 +675,116 @@ ArrayResult array_get_end_iterator(const Array* array, Iterator* out);
  */
 ArrayResult array_get_end_reverse_iterator(const Array* array, Iterator* out);
 
+/**
+ * @brief Creates a read-only forward Range spanning the entire logical Array.
+ *
+ * The Range traverses logical indexes '[0, size)' in increasing index order.
+ *
+ * @param[in] array Array whose elements will be traversed.
+ * @param[out] out Range to initialize.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_RANGE_ERROR if endpoint construction or Range ownership
+ *         initialization fails.
+ *
+ * @post On success, 'out' owns an independent beginning Iterator and Sentinel.
+ * @post If the Array is empty, the beginning Iterator immediately satisfies the
+ *       Sentinel and the Range contains zero elements.
+ * @post On failure, 'out' is reset to an invalid Range state.
+ *
+ * @note The Range provides read-only element access.
+ * @note Endpoint contexts are allocated using the Array's object allocator.
+ *
+ * @attention A successful Range must eventually be passed to range_destroy().
+ * @attention The Array and its object allocator must outlive the Range.
+ * @attention Structural Array mutation invalidates the Range.
+ */
 ArrayResult array_get_range(const Array* array, Range* out);
 
+/**
+ * @brief Creates a read-only forward Range over '[start_index, end_index)'.
+ *
+ * @param[in] array Array whose elements will be traversed.
+ * @param[in] start_index Inclusive first logical index.
+ * @param[in] end_index Exclusive logical end index.
+ * @param[out] out Range to initialize.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_OUT_OF_RANGE if 'start_index > end_index' or
+ *         'end_index > size'.
+ * @return ARRAY_ERROR_RANGE_ERROR if endpoint construction or Range ownership
+ *         initialization fails.
+ *
+ * @post The number of elements in the Range is 'end_index - start_index'.
+ * @post If 'start_index == end_index', the Range is empty.
+ * @post On failure, 'out' is reset to an invalid Range state.
+ *
+ * @note The Range provides read-only traversal in increasing logical index order.
+ * @note Endpoint contexts are allocated using the Array's object allocator.
+ *
+ * @attention A successful Range must eventually be passed to range_destroy().
+ * @attention The Array and its object allocator must outlive the Range.
+ * @attention Structural Array mutation invalidates the Range.
+ */
 ArrayResult array_get_range_ex(const Array* array, size_t start_index, size_t end_index, Range* out);
 
+/**
+ * @brief Creates a read-only reverse Range spanning the entire logical Array.
+ *
+ * The Range describes the same logical interval '[0, size)' as array_get_range()
+ * but traverses it in decreasing logical index order.
+ *
+ * @param[in] array Array whose elements will be traversed.
+ * @param[out] out Range to initialize.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_RANGE_ERROR if endpoint construction or Range ownership
+ *         initialization fails.
+ *
+ * @post For a non-empty Array, traversal begins at logical index 'size - 1' and
+ *       continues toward index zero.
+ * @post If the Array is empty, the Range contains zero elements.
+ * @post On failure, 'out' is reset to an invalid Range state.
+ *
+ * @note The Range provides read-only element access.
+ * @note Endpoint contexts are allocated using the Array's object allocator.
+ *
+ * @attention A successful Range must eventually be passed to range_destroy().
+ * @attention The Array and its object allocator must outlive the Range.
+ * @attention Structural Array mutation invalidates the Range.
+ */
 ArrayResult array_get_reverse_range(const Array* array, Range* out);
 
+/**
+ * @brief Creates a read-only reverse Range over '[start_index, end_index)'.
+ *
+ * The logical interval uses the same half-open indexing convention as
+ * array_get_range_ex(), but traversal order is reversed.
+ *
+ * For a non-empty interval, the first traversed element is 'end_index - 1' and
+ * the last traversed element is 'start_index'.
+ *
+ * @param[in] array Array whose elements will be traversed.
+ * @param[in] start_index Inclusive lower logical index of the interval.
+ * @param[in] end_index Exclusive upper logical index of the interval.
+ * @param[out] out Range to initialize.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_OUT_OF_RANGE if 'start_index > end_index' or
+ *         'end_index > size'.
+ * @return ARRAY_ERROR_RANGE_ERROR if endpoint construction or Range ownership
+ *         initialization fails.
+ *
+ * @post The number of elements in the Range is 'end_index - start_index'.
+ * @post If 'start_index == end_index', the Range is empty.
+ * @post On failure, 'out' is reset to an invalid Range state.
+ *
+ * @note Endpoint contexts are allocated using the Array's object allocator.
+ *
+ * @attention A successful Range must eventually be passed to range_destroy().
+ * @attention The Array and its object allocator must outlive the Range.
+ * @attention Structural Array mutation invalidates the Range.
+ */
 ArrayResult array_get_reverse_range_ex(const Array* array, size_t start_index, size_t end_index, Range* out);
 
 /**
@@ -622,7 +848,7 @@ ArrayResult array_reserve(Array* array, size_t new_cap);
  *
  * @post On failure the Array remains unchanged.
  *
- * @attention On success all previously obtained iterators and borrowed pointers
+ * @attention On success all previously obtained iterators, ranges, sentinels, and borrowed pointers
  *            into this Array are invalidated.
  */
 ArrayResult array_clear(Array* array);
@@ -646,7 +872,7 @@ ArrayResult array_clear(Array* array);
  *
  * @post On failure the Array remains unchanged.
  *
- * @attention On success all previously obtained iterators and borrowed pointers
+ * @attention On success all previously obtained iterators, ranges, sentinels, and borrowed pointers
  *            into this Array are invalidated.
  */
 ArrayResult array_append(Array* array, const void* element);
@@ -673,88 +899,79 @@ ArrayResult array_append(Array* array, const void* element);
  *
  * @post On failure the Array remains unchanged.
  *
- * @attention On success all previously obtained iterators and borrowed pointers
+ * @attention On success all previously obtained iterators, ranges, sentinels, and borrowed pointers
  *            into this Array are invalidated.
  */
 ArrayResult array_insert(Array* array, const void* element, size_t index);
 
 /**
- * @brief Appends all elements in the iterator range '[start, end)'.
+ * @brief Appends all elements traversed by a Range.
  *
- * The iterators are borrowed and are not modified by this operation.
+ * The source Range is borrowed and is not modified by this operation.
  *
- * The element type size reported by both iterators must equal the destination
- * Array's 'element_size'. A size mismatch results in ARRAY_ERROR_ITERATOR_ERROR.
- *
- * Every dereferenced source element must refer to data compatible with the
- * destination Array's element representation.
+ * The element type size reported by the Range must equal the destination
+ * Array's 'element_size'. A mismatch results in ARRAY_ERROR_RANGE_ERROR.
  *
  * @param[in, out] array Destination Array.
- * @param[in] start Iterator representing the first source element.
- * @param[in] end Iterator representing the past-the-end source position.
+ * @param[in] range Source Range. Must not be NULL and must be valid.
  *
  * @return ARRAY_SUCCESS on success.
- * @return ARRAY_ERROR_ITERATOR_ERROR if an iterator operation fails.
+ * @return ARRAY_ERROR_RANGE_ERROR if the Range is invalid, incompatible, or an
+ *         underlying Range/Iterator/Sentinel operation fails.
  * @return ARRAY_ERROR_OUT_OF_SPACE if required capacity cannot be provided.
  *
- * @attention 'start' and 'end' must be compatible iterators belonging to the
- *            same iteration domain.
- *
- * @attention The source range must not refer to the destination Array itself.
+ * @attention The source Range must not refer to the destination Array itself.
  *            Self-range insertion is not supported.
  *
- * @note Forward iterators are sufficient.
- * @note The implementation may clone 'start' internally to traverse the range;
- *       the caller-provided iterators remain unchanged.
- * @note If 'start' and 'end' represent the same position, the operation is a
- *       successful no-op.
- * @note Random-access iterators may be used to determine the range size before
- *       mutation and reserve storage efficiently.
+ * @note Forward traversal capability is sufficient.
+ * @note The implementation clones 'range->begin' internally and leaves the
+ *       caller-provided Range unchanged.
+ * @note An empty Range results in a successful no-op.
+ * @note Random-access Iterators may be used to estimate the Range size and
+ *       reserve storage efficiently, but are not required.
  *
  * @post On failure the destination Array is restored to its exact state before
  *       the call.
  *
- * @attention On successful mutation all previously obtained iterators and
- *            borrowed pointers into the destination Array are invalidated.
+ * @attention On successful mutation all previously obtained iterators, ranges,
+ *            sentinels, and borrowed pointers into the destination Array are
+ *            invalidated.
  */
-ArrayResult array_append_range(Array* array, const Iterator* start, const Iterator* end);
+ArrayResult array_append_range(Array* array, const Range* range);
 
 /**
- * @brief Inserts all elements in the iterator range '[start, end)' at 'index'.
+ * @brief Inserts all elements traversed by a Range at 'index'.
  *
- * Source element order is preserved.
- *
- * The iterators are borrowed and are not modified by this operation.
- *
- * The element type size reported by both iterators must equal the destination
- * Array's 'element_size'. A size mismatch results in ARRAY_ERROR_ITERATOR_ERROR.
+ * Source element order is preserved according to the Range's traversal order.
+ * The source Range is borrowed and is not modified.
  *
  * @param[in, out] array Destination Array.
- * @param[in] start Iterator representing the first source element.
- * @param[in] end Iterator representing the past-the-end source position.
+ * @param[in] range Source Range. Must not be NULL and must be valid.
  * @param[in] index Destination insertion index.
  *
  * @return ARRAY_SUCCESS on success.
- * @return ARRAY_ERROR_ITERATOR_ERROR if an iterator operation fails.
+ * @return ARRAY_ERROR_RANGE_ERROR if the Range is invalid, incompatible, or an
+ *         underlying Range/Iterator/Sentinel operation fails.
  * @return ARRAY_ERROR_OUT_OF_SPACE if required capacity cannot be provided.
  * @return ARRAY_ERROR_OUT_OF_RANGE if 'index > size'.
  *
  * @attention Valid insertion indexes are in the inclusive range '[0, size]'.
- * @attention 'start' and 'end' must be compatible and belong to the same domain.
- * @attention The source range must not refer to the destination Array itself.
+ * @attention The source Range must not refer to the destination Array itself.
+ *            Self-range insertion is not supported.
  *
- * @note Forward iterators are sufficient.
- * @note The implementation may clone 'start' internally to traverse the range;
- *       the caller-provided iterators remain unchanged.
- * @note If the source range is empty, the operation is a successful no-op.
+ * @note Forward traversal capability is sufficient.
+ * @note The implementation clones 'range->begin' internally and leaves the
+ *       caller-provided Range unchanged.
+ * @note An empty source Range results in a successful no-op.
  *
  * @post On failure the destination Array is restored to its exact state before
  *       the call.
  *
- * @attention On successful mutation all previously obtained iterators and
- *            borrowed pointers into the destination Array are invalidated.
+ * @attention On successful mutation all previously obtained iterators, ranges,
+ *            sentinels, and borrowed pointers into the destination Array are
+ *            invalidated.
  */
-ArrayResult array_insert_range(Array* array, const Iterator* start, const Iterator* end, size_t index);
+ArrayResult array_insert_range(Array* array, const Range* range, size_t index);
 
 /**
  * @brief Appends a contiguous sequence of elements.
@@ -828,7 +1045,7 @@ ArrayResult array_insert_elements(Array* array, size_t index, size_t count, cons
  * @post Removed bytes may remain physically present in unused storage.
  * @post On failure the Array remains unchanged.
  *
- * @attention On success all previously obtained iterators and borrowed pointers
+ * @attention On success all previously obtained iterators, ranges, sentinels, and borrowed pointers
  *            into this Array are invalidated.
  */
 ArrayResult array_remove_last(Array* array);
@@ -851,7 +1068,7 @@ ArrayResult array_remove_last(Array* array);
  * @post Removing 'size - 1' has the same logical effect as array_remove_last().
  * @post On failure the Array remains unchanged.
  *
- * @attention On success all previously obtained iterators and borrowed pointers
+ * @attention On success all previously obtained iterators, ranges, sentinels, and borrowed pointers
  *            into this Array are invalidated.
  */
 ArrayResult array_remove_at(Array* array, size_t index);

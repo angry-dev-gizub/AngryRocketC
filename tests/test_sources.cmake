@@ -10,4 +10,5 @@ set(
     core/iterator/iterator_test.cc
     #algorithm tests:
     core/algorithm/common/sentinel_test.cc
+    core/algorithm/common/range_test.cc
 )

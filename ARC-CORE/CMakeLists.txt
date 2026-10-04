@@ -9,6 +9,7 @@ add_library(
     iterator/iterator.c
     collections/array_impl.c
     algorithm/common/sentinel.c
+    algorithm/common/range.c
 )
 
 target_include_directories(

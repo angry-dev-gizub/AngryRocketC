@@ -38,7 +38,7 @@
  *
  * @note Replacing element bytes without changing Array structure, including
  *       array_set_at() and writes through mutable element/data pointers, does
- *       not invalidate existing iterators or ranges.
+ *       not invalidate existing iterators, ranges, sentinels, or borrowed pointers.
  *
  * @note This file is part of Arc Core.
  */
@@ -114,12 +114,12 @@ typedef /** ArrayGrowthFactor */
         ARRAY_GROWTH_NONE = 0,
 
         /**
-         * factor = 2
+         * factor = 1.125
          *
-         * pros: Fewer growth operations and copies.
-         * cons: Higher potential unused capacity.
+         * pros: Minimizes excess capacity.
+         * cons: Significantly more frequent growth operations and copies.
          */
-        ARRAY_GROWTH_2X,
+        ARRAY_GROWTH_1_125X,
 
         /**
          * factor = 1.5
@@ -130,12 +130,12 @@ typedef /** ArrayGrowthFactor */
         ARRAY_GROWTH_1_5X,
 
         /**
-         * factor = 1.125
+         * factor = 2
          *
-         * pros: Minimizes excess capacity.
-         * cons: Significantly more frequent growth operations and copies.
+         * pros: Fewer growth operations and copies.
+         * cons: Higher potential unused capacity.
          */
-        ARRAY_GROWTH_1_125X,
+        ARRAY_GROWTH_2X,
     } ArrayGrowthFactor;
 
 /**
@@ -358,7 +358,7 @@ ArrayResult array_get_first(const Array* array, const void** out);
  *
  * @note The returned pointer is borrowed.
  * @note Writing through the pointer modifies element bytes only and does not
- *       invalidate existing iterators or ranges.
+ *       invalidate existing iterators, ranges, sentinels, or borrowed pointers.
  *
  * @attention Any later structural mutation may invalidate the returned pointer.
  */
@@ -393,7 +393,7 @@ ArrayResult array_get_last(const Array* array, const void** out);
  *
  * @note The returned pointer is borrowed.
  * @note Writing through the pointer modifies element bytes only and does not
- *       invalidate existing iterators or ranges.
+ *       invalidate existing iterators, ranges, sentinels, or borrowed pointers.
  *
  * @attention Any later structural mutation may invalidate the returned pointer.
  */
@@ -473,7 +473,8 @@ ArrayResult array_get_data_ex(const Array* array, const void** out, size_t* out_
  * @post On failure, '*out' is NULL and '*out_size' is zero.
  *
  * @note Writing within the returned logical byte range modifies element bytes
- *       only and does not invalidate existing iterators or ranges.
+ *       only and does not invalidate existing iterators, ranges, sentinels, or
+ *       borrowed pointers.
  *
  * @attention Any later structural mutation may invalidate the returned pointer.
  */
@@ -690,11 +691,18 @@ ArrayResult array_get_end_reverse_iterator(const Array* array, Iterator* out);
  * @post On success, 'out' owns an independent beginning Iterator and Sentinel.
  * @post If the Array is empty, the beginning Iterator immediately satisfies the
  *       Sentinel and the Range contains zero elements.
- * @post On failure, 'out' is reset to an invalid Range state.
+ * @post On failure:
+ *       - 'out' is not a valid usable Range;
+ *       - any endpoint resources that can be released successfully are released;
+ *       - if rollback destruction fails, 'out' may retain ownership of an
+ *         unreleased endpoint and must be passed to range_destroy().
  *
  * @note The Range provides read-only element access.
  * @note Endpoint contexts are allocated using the Array's object allocator.
  *
+ * @attention 'out' must not contain any live owned endpoint state.
+ *            An existing or partially constructed Range must be successfully
+ *            destroyed before being reused as output.
  * @attention A successful Range must eventually be passed to range_destroy().
  * @attention The Array and its object allocator must outlive the Range.
  * @attention Structural Array mutation invalidates the Range.
@@ -717,11 +725,18 @@ ArrayResult array_get_range(const Array* array, Range* out);
  *
  * @post The number of elements in the Range is 'end_index - start_index'.
  * @post If 'start_index == end_index', the Range is empty.
- * @post On failure, 'out' is reset to an invalid Range state.
+ * @post On failure:
+ *       - 'out' is not a valid usable Range;
+ *       - any endpoint resources that can be released successfully are released;
+ *       - if rollback destruction fails, 'out' may retain ownership of an
+ *         unreleased endpoint and must be passed to range_destroy().
  *
  * @note The Range provides read-only traversal in increasing logical index order.
  * @note Endpoint contexts are allocated using the Array's object allocator.
  *
+ * @attention 'out' must not contain any live owned endpoint state.
+ *            An existing or partially constructed Range must be successfully
+ *            destroyed before being reused as output.
  * @attention A successful Range must eventually be passed to range_destroy().
  * @attention The Array and its object allocator must outlive the Range.
  * @attention Structural Array mutation invalidates the Range.
@@ -744,11 +759,18 @@ ArrayResult array_get_range_ex(const Array* array, size_t start_index, size_t en
  * @post For a non-empty Array, traversal begins at logical index 'size - 1' and
  *       continues toward index zero.
  * @post If the Array is empty, the Range contains zero elements.
- * @post On failure, 'out' is reset to an invalid Range state.
+ * @post On failure:
+ *       - 'out' is not a valid usable Range;
+ *       - any endpoint resources that can be released successfully are released;
+ *       - if rollback destruction fails, 'out' may retain ownership of an
+ *         unreleased endpoint and must be passed to range_destroy().
  *
  * @note The Range provides read-only element access.
  * @note Endpoint contexts are allocated using the Array's object allocator.
  *
+ * @attention 'out' must not contain any live owned endpoint state.
+ *            An existing or partially constructed Range must be successfully
+ *            destroyed before being reused as output.
  * @attention A successful Range must eventually be passed to range_destroy().
  * @attention The Array and its object allocator must outlive the Range.
  * @attention Structural Array mutation invalidates the Range.
@@ -777,10 +799,17 @@ ArrayResult array_get_reverse_range(const Array* array, Range* out);
  *
  * @post The number of elements in the Range is 'end_index - start_index'.
  * @post If 'start_index == end_index', the Range is empty.
- * @post On failure, 'out' is reset to an invalid Range state.
+ * @post On failure:
+ *       - 'out' is not a valid usable Range;
+ *       - any endpoint resources that can be released successfully are released;
+ *       - if rollback destruction fails, 'out' may retain ownership of an
+ *         unreleased endpoint and must be passed to range_destroy().
  *
  * @note Endpoint contexts are allocated using the Array's object allocator.
  *
+ * @attention 'out' must not contain any live owned endpoint state.
+ *            An existing or partially constructed Range must be successfully
+ *            destroyed before being reused as output.
  * @attention A successful Range must eventually be passed to range_destroy().
  * @attention The Array and its object allocator must outlive the Range.
  * @attention Structural Array mutation invalidates the Range.
@@ -807,7 +836,8 @@ ArrayResult array_get_reverse_range_ex(const Array* array, size_t start_index, s
  * @post On failure the Array remains unchanged.
  *
  * @attention If storage capacity changes successfully, all previously obtained
- *            iterators and internal-storage pointers are invalidated.
+ *            iterators, ranges, sentinels, and internal-storage pointers are
+ *            invalidated.
  */
 ArrayResult array_shrink_to_fit(Array* array);
 
@@ -829,7 +859,8 @@ ArrayResult array_shrink_to_fit(Array* array);
  * @post On failure the Array remains unchanged.
  *
  * @attention If storage capacity changes successfully, all previously obtained
- *            iterators and internal-storage pointers are invalidated.
+ *            iterators, ranges, sentinels, and internal-storage pointers are
+ *            invalidated.
  */
 ArrayResult array_reserve(Array* array, size_t new_cap);
 
@@ -876,6 +907,33 @@ ArrayResult array_clear(Array* array);
  *            into this Array are invalidated.
  */
 ArrayResult array_append(Array* array, const void* element);
+
+/**
+ * @brief Inserts one element at the beginning of an Array.
+ *
+ * Existing elements are shifted one position toward higher indexes while
+ * preserving their relative order.
+ *
+ * @param[in, out] array Array to modify.
+ * @param[in] element Pointer to the source element. Must not be NULL.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_OUT_OF_SPACE if insertion requires unavailable capacity
+ *         in a fixed-capacity Array.
+ *
+ * @note This operation is logically equivalent to inserting at index zero.
+ * @note A dynamic Array grows automatically when necessary according to its
+ *       configured growth factor.
+ *
+ * @attention Self-aliasing is not supported. 'element' must not point into the
+ *            destination Array's own storage.
+ *
+ * @post On failure the Array remains unchanged.
+ *
+ * @attention On success all previously obtained iterators, ranges, sentinels,
+ *            and borrowed pointers into this Array are invalidated.
+ */
+ArrayResult array_prepend(Array* array, const void* element);
 
 /**
  * @brief Inserts one element at a specific logical index.
@@ -994,8 +1052,8 @@ ArrayResult array_insert_range(Array* array, const Range* range, size_t index);
  * @post Source ordering is preserved.
  * @post On failure the Array is restored to its exact state before the call.
  *
- * @attention On successful mutation all previously obtained iterators and
- *            borrowed pointers into this Array are invalidated.
+ * @attention On successful mutation all previously obtained iterators, ranges,
+ *            sentinels, and borrowed pointers into this Array are invalidated.
  */
 ArrayResult array_append_elements(Array* array, size_t count, const void* elements);
 
@@ -1027,10 +1085,34 @@ ArrayResult array_append_elements(Array* array, size_t count, const void* elemen
  * @post Source ordering is preserved.
  * @post On failure the Array is restored to its exact state before the call.
  *
- * @attention On successful mutation all previously obtained iterators and
- *            borrowed pointers into this Array are invalidated.
+ * @attention On successful mutation all previously obtained iterators, ranges,
+ *            sentinels, and borrowed pointers into this Array are invalidated.
  */
 ArrayResult array_insert_elements(Array* array, size_t index, size_t count, const void* elements);
+
+/**
+ * @brief Removes the first logical element from an Array.
+ *
+ * All elements following the first element are shifted one position toward the
+ * beginning of the Array while preserving their relative order.
+ *
+ * @param[in, out] array Array to modify.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_OUT_OF_RANGE if the Array is empty.
+ *
+ * @note This operation is logically equivalent to removing the element at
+ *       index zero.
+ *
+ * @post On success size decreases by one.
+ * @post Capacity remains unchanged.
+ * @post Removed bytes may remain physically present in unused storage.
+ * @post On failure the Array remains unchanged.
+ *
+ * @attention On success all previously obtained iterators, ranges, sentinels,
+ *            and borrowed pointers into this Array are invalidated.
+ */
+ArrayResult array_remove_first(Array* array);
 
 /**
  * @brief Removes the last logical element.
@@ -1072,6 +1154,38 @@ ArrayResult array_remove_last(Array* array);
  *            into this Array are invalidated.
  */
 ArrayResult array_remove_at(Array* array, size_t index);
+
+/**
+ * @brief Removes a contiguous sequence of logical elements.
+ *
+ * Removes 'count' elements beginning at 'index'. Elements following the
+ * removed range are shifted toward the beginning of the Array while preserving
+ * their relative order.
+ *
+ * @param[in, out] array Array to modify.
+ * @param[in] index Zero-based index of the first element to remove.
+ * @param[in] count Number of consecutive elements to remove.
+ *
+ * @return ARRAY_SUCCESS on success.
+ * @return ARRAY_ERROR_OUT_OF_RANGE if 'index > size' or if the requested
+ *         removal range extends beyond the logical size of the Array.
+ *
+ * @attention For 'count > 0', 'index' must refer to an existing logical
+ *            element and the range '[index, index + count)' must be contained
+ *            within '[0, size)'.
+ *
+ * @note 'count == 0' results in a successful no-op and permits
+ *       'index == size'.
+ *
+ * @post On successful removal, size decreases by exactly 'count'.
+ * @post Capacity remains unchanged.
+ * @post Removed bytes may remain physically present in unused storage.
+ * @post On failure the Array remains unchanged.
+ *
+ * @attention If 'count > 0', all previously obtained iterators, ranges,
+ *            sentinels, and borrowed pointers into this Array are invalidated.
+ */
+ArrayResult array_remove_elements(Array* array, size_t index, size_t count);
 
 /**
  * @brief Converts an ArrayResult value to a human-readable static string.

@@ -10,6 +10,7 @@ add_library(
     collections/array_impl.c
     algorithm/common/sentinel.c
     algorithm/common/range.c
+    collections/array_internal_impl.c
 )
 
 target_include_directories(

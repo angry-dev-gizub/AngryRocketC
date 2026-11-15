@@ -1,0 +1,8 @@
+/*
+ * Copyright 2026 Nelson Somé
+ *
+ * Licensed under the Apache License, Version 2.0.
+ * See the LICENSE file in the project root for license information.
+ */
+
+#include "result.h"

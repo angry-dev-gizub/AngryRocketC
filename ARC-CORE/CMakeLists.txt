@@ -11,6 +11,7 @@ add_library(
     algorithm/common/sentinel.c
     algorithm/common/range.c
     collections/array_internal_impl.c
+    result/result.c
 )
 
 target_include_directories(
